@@ -11,6 +11,7 @@ SPOKE_CLUSTERS=("east" "west")
 SPOKE_CLUSTER_IDS=(2 3) # Hub = 1, Spokes = 2,3
 DOCKER_REQUIRED=true
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ALL_CONTEXTS=("kind-${HUB_CLUSTER_NAME}" "${SPOKE_CONTEXTS[@]}")
 
 # ===========================================
 # OS DETECTION
@@ -229,11 +230,6 @@ install_cilium kind-${SPOKE_CLUSTERS[0]} ${SPOKE_CLUSTERS[0]} ${SPOKE_CLUSTER_ID
 install_cilium kind-${SPOKE_CLUSTERS[1]} ${SPOKE_CLUSTERS[1]} ${SPOKE_CLUSTER_IDS[1]}
 
 
-
-# ===========================================
-# INSTALL METALLB ON ALL CLUSTERS
-# ===========================================
-
 # ===========================================
 # Install MetalLB on all clusters
 # ===========================================
@@ -250,6 +246,8 @@ for i in "${!SPOKE_CONTEXTS[@]}"; do
     cluster="${SPOKE_CLUSTER_NAMES[$i]}"
     $SCRIPT_DIR/install_metallb.sh "$context" "$cluster"
 done
+
+echo "[INFO] Applying IPAddressPool to hub cluster..."
 
 # ===========================================
 # INSTALL ARGOCD ON HUB
@@ -296,7 +294,7 @@ done
 # ===========================================
 # ACCEPT MANAGED CLUSTERS
 # ===========================================
-kubectl config use-context $HUB_CLUSTER_NAME
+kubectl config use-context kind-$HUB_CLUSTER_NAME
 clusteradm accept --clusters ${SPOKE_CLUSTERS[0]},${SPOKE_CLUSTERS[1]} --wait
 
 

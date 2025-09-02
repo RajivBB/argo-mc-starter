@@ -1,0 +1,63 @@
+# apiVersion: work.open-cluster-management.io/v1alpha1
+# kind: ManifestWorkReplicaSet
+# metadata:
+#   name: argocd-guestbook-app
+#   namespace: dev-team
+# spec:
+#   placementRefs:
+#     - name: select-dev-kind-es
+#   manifestWorkTemplate:
+#     workload:
+#       manifests:
+#         - apiVersion: argoproj.io/v1alpha1
+#           kind: Application
+#           metadata:
+#             # Unique app name per cluster
+#             name: guestbook
+#             # Namespace where argocd-agent watches
+#             namespace: kind-east
+#           spec:
+#             project: default
+#             source:
+#               repoURL: https://github.com/argoproj/argocd-example-apps
+#               targetRevision: HEAD
+#               path: guestbook
+#             destination:
+#               server: https://kubernetes.default.svc
+#               namespace: guestbook
+#             syncPolicy:
+#               syncOptions:
+#                 - CreateNamespace=true
+#               automated:
+#                 prune: true
+
+apiVersion: work.open-cluster-management.io/v1alpha1
+kind: ManifestWorkReplicaSet
+metadata:
+  name: argocd-guestbook-app
+  namespace: dev-team   # your Placement namespace
+spec:
+  placementRefs:
+    - name: select-dev-kind-es
+  manifestWorkTemplate:
+    workload:
+      manifests:
+        - apiVersion: argoproj.io/v1alpha1
+          kind: Application
+          metadata:
+            name: guestbook-dev-kind-east  # unique per cluster
+            namespace: argocd
+          spec:
+            project: default
+            source:
+              repoURL: https://github.com/argoproj/argocd-example-apps
+              targetRevision: HEAD
+              path: guestbook
+            destination:
+              server: https://kubernetes.default.svc
+              namespace: guestbook
+            syncPolicy:
+              syncOptions:
+                - CreateNamespace=true
+              automated:
+                prune: true
