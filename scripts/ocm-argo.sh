@@ -323,7 +323,7 @@ enable_cilium_clustermesh() {
 
     # Enable clustermesh on all clusters
     for ctx in "${ALL_CONTEXTS[@]}"; do
-        cilium clustermesh enable --context "$ctx"
+        cilium clustermesh enable --context "$ctx" --service-type=NodePort
     done
 
     # Connect each cluster with every other cluster
@@ -373,3 +373,6 @@ kubectl apply -f examples/location-es/managedclustersetbinding.yaml --context ki
 
 kubectl apply -f examples/location-es/placement.yaml --context kind-$HUB_CLUSTER_NAME
 kubectl apply -f examples/location-es/manifestworkreplicaset.yaml --context kind-$HUB_CLUSTER
+
+kubectl apply -f examples/location-es/argocd-applicationset.yaml --context kind-$HUB_CLUSTER_NAME
+kubectl apply -f examples/location-es/application.yaml --context kind-$HUB_CLUSTER_NAME
