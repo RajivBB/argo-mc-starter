@@ -1,0 +1,17 @@
+#Error from server (BadRequest): error when creating "location-es/managedclustersetbinding.yaml": 
+# admission webhook "managedclustersetbindingvalidators.admission.cluster.open-cluster-management.io" 
+#denied the request: The ManagedClusterSetBinding must have the same name as the target ManagedClusterSet
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev-team              # or your target namespace
+  
+---
+apiVersion: cluster.open-cluster-management.io/v1beta2
+kind: ManagedClusterSetBinding
+metadata:
+  name: location-es           # must match exactly
+  namespace: dev-team        # or your target namespace
+spec:
+  clusterSet: location-es     # must match metadata.name 

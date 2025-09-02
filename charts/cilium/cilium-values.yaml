@@ -1,0 +1,16 @@
+cluster:
+ name: kind-hub
+ id: 1
+
+
+clustermesh:
+ useAPIServer: true
+ maxConnectedClusters: 255
+ enableEndpointSliceSynchronization: false
+ enableMCSAPISupport: true
+ annotations: {}
+ config:
+   enabled: false
+   domain: mesh.cilium.io
+   clusters: []
+

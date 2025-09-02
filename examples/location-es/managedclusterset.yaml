@@ -1,0 +1,9 @@
+apiVersion: cluster.open-cluster-management.io/v1beta2
+kind: ManagedClusterSet
+metadata:
+  name: location-es
+spec:
+  clusterSelector:
+    labelSelector:
+      matchLabels:
+        cluster.open-cluster-management.io/clusterset: location-es

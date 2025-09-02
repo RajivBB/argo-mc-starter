@@ -1,0 +1,50 @@
+
+apiVersion: work.open-cluster-management.io/v1alpha1
+kind: ManifestWorkReplicaSet
+metadata:
+  name: nginx-deployment
+  namespace: dev-team
+spec:
+  placementRefs:
+   - name: select-dev-kind-es
+#    - name: placement1
+  manifestWorkTemplate:
+    workload:
+      manifests:
+        - kind: Namespace
+          apiVersion: v1
+          metadata:
+            name: default-22
+        - kind: Namespace
+          apiVersion: v1
+          metadata:
+            name: test1            
+        - apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            namespace: test1
+            name: my-sa
+        - apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            namespace: test1
+            name: nginx-deployment
+            labels:
+              app: nginx
+          spec:
+            replicas: 3
+            selector:
+              matchLabels:
+                app: nginx
+            template:
+              metadata:
+                labels:
+                  app: nginx
+              spec:
+                serviceAccountName: my-sa
+                containers:
+                  - name: nginx
+                    image: nginx:1.14.2
+                    ports:
+                      - containerPort: 80
+
