@@ -36,14 +36,14 @@ The project includes an automated setup script that handles all prerequisites an
 
 ```bash
 # Clone the repository
-git clone <your-repo-url>
-cd <your-repo-name>
+git clone https://github.com/RajivBB/argo-mc-starter.git
+cd argo-mc-starter
 
 # Make the script executable
-chmod +x scripts/ocm-argo.sh
+chmod +x scripts/ocm-argo-setup.sh
 
 # Run the complete setup
-./scripts/ocm-argo.sh
+./scripts/ocm-argo-setup.sh
 ```
 
 ### What the Script Does
