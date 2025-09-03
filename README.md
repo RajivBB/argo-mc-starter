@@ -273,12 +273,14 @@ We welcome contributions from the community! Here's how you can help:
 
 ```bash
 # Clone your fork
-git clone https://github.com/your-username/your-repo-name.git
-cd your-repo-name
+git clone https://github.com/RajivBB/argo-mc-starter.git
+cd argo-mc-starter
 
-# Test changes locally
-./scripts/ocm-argo.sh
+# Make the script executable
+chmod +x scripts/ocm-argo-setup.sh
 
+# Run the complete setup
+./scripts/ocm-argo-setup.sh
 # Run examples
 kubectl apply -f examples/location-es/ --context kind-hub
 ```
