@@ -17,47 +17,33 @@ ALL_CONTEXTS=("kind-${HUB_CLUSTER_NAME}" "${SPOKE_CONTEXTS[@]}")
 # OS DETECTION
 # ===========================================
 detect_os() {
-    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        if [ -f /etc/arch-release ]; then
-            echo "arch"
-        elif [ -f /etc/debian_version ]; then
-            echo "debian"
-        elif [ -f /etc/redhat-release ]; then
-            echo "rhel"
-        elif [ -f /etc/fedora-release ]; then
-            echo "fedora"
-        else
-            echo "unknown"
-        fi
-    elif [[ "$OSTYPE" == "darwin"* ]]; then
-        echo "mac"
-    else
-        echo "unknown"
-    fi
+    case "$OSTYPE" in
+        linux-gnu*) 
+            if [ -f /etc/arch-release ]; then echo "arch"
+            elif [ -f /etc/debian_version ]; then echo "debian"
+            elif [ -f /etc/redhat-release ]; then echo "rhel"
+            elif [ -f /etc/fedora-release ]; then echo "fedora"
+            else echo "linux" 
+            fi ;;
+        darwin*) echo "mac" ;;
+        *) echo "unknown" ;;
+    esac
 }
-
 OS=$(detect_os)
 echo "[INFO] Detected OS: $OS"
 
 # ===========================================
-# INSTALLATION FUNCTIONS
+# PACKAGE INSTALLATION HELPERS
 # ===========================================
 install_package() {
     local pkg=$1
     case $OS in
-        arch)
-            sudo pacman -Sy --noconfirm $pkg ;;
-        debian)
-            sudo apt-get update && sudo apt-get install -y $pkg ;;
-        rhel)
-            sudo yum install -y $pkg ;;
-        fedora)
-            sudo dnf install -y $pkg ;;
-        mac)
-            brew install $pkg ;;
-        *)
-            echo "[ERROR] Unsupported OS for package: $pkg"
-            exit 1 ;;
+        arch) sudo pacman -Sy --noconfirm $pkg ;;
+        debian) sudo apt-get update && sudo apt-get install -y $pkg ;;
+        rhel) sudo yum install -y $pkg ;;
+        fedora) sudo dnf install -y $pkg ;;
+        mac) brew install $pkg ;;
+        *) echo "[ERROR] Unsupported OS for package: $pkg"; exit 1 ;;
     esac
 }
 
@@ -65,19 +51,13 @@ install_docker() {
     if ! command -v docker &>/dev/null; then
         echo "[INFO] Installing Docker..."
         case $OS in
-            arch)
-                install_package docker
-                sudo systemctl enable --now docker ;;
+            arch|rhel|fedora) install_package docker; sudo systemctl enable --now docker ;;
             debian)
                 install_package apt-transport-https ca-certificates curl software-properties-common
                 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
                 sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
                 sudo apt-get update && sudo apt-get install -y docker-ce ;;
-            rhel|fedora)
-                install_package docker
-                sudo systemctl enable --now docker ;;
-            mac)
-                brew install --cask docker ;;
+            mac) brew install --cask docker ;;
         esac
     else
         echo "[INFO] Docker already installed."
@@ -98,23 +78,63 @@ install_binary() {
 }
 
 # ===========================================
-# INSTALL TOOLS
+# CILIUM CLI INSTALLATION
 # ===========================================
-echo "[INFO] Checking prerequisites..."
+install_cilium_cli() {
+    echo "[INFO] Installing Cilium CLI..."
 
+    if command -v cilium &>/dev/null; then
+        echo "[INFO] Cilium CLI already installed."
+        return
+    fi
+
+    local os=$(uname | tr '[:upper:]' '[:lower:]')
+    local arch=amd64
+    [[ "$(uname -m)" == "aarch64" || "$(uname -m)" == "arm64" ]] && arch=arm64
+    local version=$(curl -s https://raw.githubusercontent.com/cilium/cilium-cli/main/stable.txt)
+    echo "[INFO] Latest Cilium CLI version: $version"
+
+    local url="https://github.com/cilium/cilium-cli/releases/download/${version}/cilium-${os}-${arch}.tar.gz"
+    curl -L --fail --remote-name-all ${url}{,.sha256sum}
+
+    if [[ "$os" == "darwin" ]]; then
+        shasum -a 256 -c cilium-${os}-${arch}.tar.gz.sha256sum
+    else
+        sha256sum --check cilium-${os}-${arch}.tar.gz.sha256sum
+    fi
+
+    sudo tar xzvfC cilium-${os}-${arch}.tar.gz /usr/local/bin
+    rm cilium-${os}-${arch}.tar.gz{,.sha256sum}
+
+    echo "[INFO] Cilium CLI installed successfully."
+}
+
+# ===========================================
+# Helm installation
+# ===========================================
+install_helm() {
+    if ! command -v helm &>/dev/null; then
+        curl -fsSL -o helm.tar.gz https://get.helm.sh/helm-v3.14.0-${OS}-${ARCH}.tar.gz
+        tar -zxvf helm.tar.gz
+        sudo mv ${OS}-${ARCH}/helm /usr/local/bin/
+        rm -rf helm.tar.gz ${OS}-${ARCH}
+    else
+        echo "[INFO] Helm already installed."
+    fi
+}
+
+
+# ===========================================
+# INSTALL PREREQUISITES
+# ===========================================
+echo "[INFO] Installing prerequisites..."
 $DOCKER_REQUIRED && install_docker
 
-# kind
 install_binary kind https://kind.sigs.k8s.io/dl/v0.23.0/kind-linux-amd64
-
-# kubectl
 install_binary kubectl https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
-
-# clusteradm
 install_binary clusteradm https://github.com/open-cluster-management-io/clusteradm/releases/latest/download/clusteradm_linux_amd64
-
-# cilium CLI
-#install_binary cilium curl -LO https://raw.githubusercontent.com/cilium/cilium/1.18.1/Documentation/installation/kind-config.yaml
+install_cilium_cli
+install_helm
 
 
 get_ip_address() {
@@ -213,15 +233,10 @@ install_mcs_crds() {
     fi
 }
 
-
 install_mcs_crds "kind-$HUB_CLUSTER_NAME"
 for ctx in "${SPOKE_CONTEXTS[@]}"; do
     install_mcs_crds "$ctx"
 done
-
-
-
-
 
 # ===========================================
 # INSTALL CILIUM WITH UNIQUE IDs
@@ -281,9 +296,6 @@ echo "[INFO] MetalLB installation completed for all clusters."
 
 echo "[INFO] Applying IPAddressPool to hub cluster..."
 
-
-
-
 # ===========================================
 # Install ingress-nginx in all clusters
 # ===========================================
@@ -302,7 +314,6 @@ install_ingress_nginx() {
             --create-namespace
     fi
 }
-
 
 echo "[INFO] Installing ingress-nginx on all clusters..."
 for ctx in "${ALL_CONTEXTS[@]}"; do
@@ -373,8 +384,6 @@ clusteradm addon enable --names argocd --clusters ${SPOKE_CLUSTERS[0]},${SPOKE_C
 
 echo "[SUCCESS] Setup complete!"
 
-
-
 # ===========================================
 # ENABLE CILIUM CLUSTERMESH
 # ===========================================
@@ -403,35 +412,17 @@ enable_cilium_clustermesh() {
 enable_cilium_clustermesh
 
 
-
 # ===========================================
 # LABEL MANAGED CLUSTERS WITH CLUSTERSET
 # ===========================================
-# label_managed_clusters() {
-#     echo "[INFO] Labeling ManagedClusters with clusterset: location-es"
-
-#     for cluster in "${SPOKE_CLUSTER_NAMES[@]}"; do
-#         echo "[INFO] Adding label to ManagedCluster: $cluster"
-#         kubectl label managedcluster "$cluster" \
-#             cluster.open-cluster-management.io/clusterset=location-es --overwrite
-#     done
-
-#     echo "[INFO] Labels applied successfully. Verifying..."
-#     kubectl get managedclusters --show-labels
-# }
-
-
-
 label_managed_clusters() {
     local hub_context="kind-$HUB_CLUSTER_NAME"
     echo "[INFO] Labeling ManagedClusters in hub cluster ($hub_context) with clusterset: location-es"
-
     for cluster in "${SPOKE_CLUSTER_NAMES[@]}"; do
         echo "[INFO] Adding label to ManagedCluster: $cluster"
         kubectl --context "$hub_context" label managedcluster "$cluster" \
             cluster.open-cluster-management.io/clusterset=location-es --overwrite
     done
-
     echo "[INFO] Labels applied successfully. Verifying..."
     kubectl --context "$hub_context" get managedclusters --show-labels
 }
@@ -439,7 +430,6 @@ label_managed_clusters() {
 label_managed_clusters
 
 echo "[INFO] Enabling ManifestWorkReplicaSet feature in ClusterManager..."
-
 # Patch the ClusterManager CR to add the feature gate under workConfiguration
 kubectl patch clustermanager cluster-manager --type='merge' -p '{
   "spec": {
@@ -453,15 +443,12 @@ kubectl patch clustermanager cluster-manager --type='merge' -p '{
     }
   }
 }'
-
 echo "[INFO] Patch applied. Verifying..."
-
 # Verify the feature gate is enabled
 kubectl get clustermanager cluster-manager -o yaml | grep -A3 "feature: ManifestWorkReplicaSet" || {
   echo "[ERROR] Feature not found in ClusterManager spec!"
   exit 1
 }
-
 echo "[INFO] ManifestWorkReplicaSet feature enabled successfully."
 
 
@@ -475,11 +462,15 @@ kubectl apply -f $BASE_DIR/examples/location-es/clusterclaim-west.yaml --context
 
 kubectl apply -f $BASE_DIR/examples/location-es/managedclusterset.yaml --context kind-$HUB_CLUSTER_NAME
 kubectl apply -f $BASE_DIR/examples/location-es/managedclustersetbinding.yaml --context kind-$HUB_CLUSTER_NAME
-
 kubectl apply -f $BASE_DIR/examples/location-es/placement.yaml --context kind-$HUB_CLUSTER_NAME
 kubectl apply -f $BASE_DIR/examples/location-es/manifestworkreplicaset.yaml --context kind-$HUB_CLUSTER_NAME
 
-kubectl apply -f $BASE_DIR/examples/location-es/applicationset.yaml --context kind-$HUB_CLUSTER_NAME
-kubectl apply -f $BASE_DIR/examples/location-es/application.yaml --context kind-$HUB_CLUSTER_NAME
+
+kubectl apply -f $BASE_DIR/examples/argocd/rbac-appset.yaml --context kind-$HUB_CLUSTER_NAME
+kubectl apply -f $BASE_DIR/examples/argocd/configmap.yaml --context kind-$HUB_CLUSTER_NAME
+kubectl apply -f $BASE_DIR/examples/argocd/placement.yaml --context kind-$HUB_CLUSTER_NAME
+kubectl apply -f $BASE_DIR/examples/argocd/applicationset.yaml --context kind-$HUB_CLUSTER_NAME
+kubectl apply -f $BASE_DIR/examples/argocd/application.yaml --context kind-$HUB_CLUSTER_NAME
 
 
+#kubectl apply -f $BASE_DIR/examples/location-es/serviceexport.yaml --context kind-east
