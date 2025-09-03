@@ -1,0 +1,11 @@
+apiVersion: multicluster.x-k8s.io/v1alpha1
+kind: ServiceExport
+metadata:
+ name: guestbook-ui
+ namespace: guestbook
+---
+apiVersion: multicluster.x-k8s.io/v1alpha1
+kind: ServiceExport
+metadata:
+ name: wordpress
+ namespace: wordpress
