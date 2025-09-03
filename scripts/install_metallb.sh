@@ -1,5 +1,4 @@
 #!/bin/bash
-
 set -e
 
 context=$1
@@ -34,7 +33,6 @@ kubectl --context "$context" wait --for=condition=Available --timeout=60s deploy
     sleep 10
 }
 
-# Give DNS / webhook time to settle
 echo "[INFO] Sleeping 10s to ensure webhook is reachable..."
 sleep 10
 
@@ -56,6 +54,9 @@ else
 fi
 
 echo "[INFO] Configuring IPAddressPool for $cluster_name with range: $ip_range"
+
+# ✅ Delete old IPAddressPool if it exists
+kubectl --context "$context" delete ipaddresspool metallb-pool -n metallb-system --ignore-not-found
 
 # Apply IPAddressPool and L2Advertisement
 cat <<EOF | kubectl --context "$context" apply -f -

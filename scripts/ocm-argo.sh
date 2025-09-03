@@ -10,7 +10,7 @@ SPOKE_CLUSTER_NAMES=("east" "west")            # OCM managed cluster names
 SPOKE_CLUSTERS=("east" "west")
 SPOKE_CLUSTER_IDS=(2 3) # Hub = 1, Spokes = 2,3
 DOCKER_REQUIRED=true
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && cd .. && pwd)"
 ALL_CONTEXTS=("kind-${HUB_CLUSTER_NAME}" "${SPOKE_CONTEXTS[@]}")
 
 # ===========================================
@@ -114,7 +114,30 @@ install_binary kubectl https://storage.googleapis.com/kubernetes-release/release
 install_binary clusteradm https://github.com/open-cluster-management-io/clusteradm/releases/latest/download/clusteradm_linux_amd64
 
 # cilium CLI
-install_binary cilium curl -LO https://raw.githubusercontent.com/cilium/cilium/1.18.1/Documentation/installation/kind-config.yaml
+#install_binary cilium curl -LO https://raw.githubusercontent.com/cilium/cilium/1.18.1/Documentation/installation/kind-config.yaml
+
+
+get_ip_address() {
+    if [[ -f /etc/os-release ]]; then
+        . /etc/os-release
+        if [[ $ID == "ubuntu" ]]; then
+            # For Ubuntu, use hostname -I
+            echo "$(hostname -I | awk '{print $1}')"
+        elif [[ $ID == "arch" || $ID == "manjaro" ]]; then
+            # For Arch or Manjaro (based on /etc/os-release)
+            echo "$(ip -4 addr show scope global | awk '/inet/ {print $2}' | cut -d/ -f1)"
+        else
+            # Default fallback (works for most distributions)
+            echo "$(hostname -I | awk '{print $1}')"
+        fi
+    else
+        echo "Error: Unable to determine the OS."
+        exit 1
+    fi
+}
+
+# Get the IP address based on the distribution
+HOST_IP=$(get_ip_address)
 
 
 # ===========================================
@@ -131,7 +154,7 @@ create_cluster() {
         echo "[INFO] Cluster $name already exists. Skipping..."
     else
         echo "[INFO] Creating cluster $name..."
-        cat <<EOF | kind create cluster --name $name --config=-
+        cat <<EOF | kind create cluster --name $name --config=
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 networking:
@@ -155,11 +178,19 @@ EOF
 }
 
 echo "[INFO] Creating hub cluster..."
-create_cluster $HUB_CLUSTER_NAME "10.12.0.0/16" "10.13.0.0/16" "$(hostname -I | awk '{print $1}')" 6443
+
+# Use the IP address in the cluster creation
+create_cluster $HUB_CLUSTER_NAME "10.12.0.0/16" "10.13.0.0/16" "$HOST_IP" 6443
 
 echo "[INFO] Creating spoke clusters..."
-create_cluster ${SPOKE_CLUSTERS[0]} "10.16.0.0/16" "10.17.0.0/16" "$(hostname -I | awk '{print $1}')" 9443
-create_cluster ${SPOKE_CLUSTERS[1]} "10.18.0.0/16" "10.19.0.0/16" "$(hostname -I | awk '{print $1}')" 10443
+create_cluster ${SPOKE_CLUSTERS[0]} "10.16.0.0/16" "10.17.0.0/16" "$HOST_IP" 9443
+create_cluster ${SPOKE_CLUSTERS[1]} "10.18.0.0/16" "10.19.0.0/16" "$HOST_IP" 10443
+
+# create_cluster $HUB_CLUSTER_NAME "10.12.0.0/16" "10.13.0.0/16" "$(hostname -I | awk '{print $1}')" 6443
+
+# echo "[INFO] Creating spoke clusters..."
+# create_cluster ${SPOKE_CLUSTERS[0]} "10.16.0.0/16" "10.17.0.0/16" "$(hostname -I | awk '{print $1}')" 9443
+# create_cluster ${SPOKE_CLUSTERS[1]} "10.18.0.0/16" "10.19.0.0/16" "$(hostname -I | awk '{print $1}')" 10443
 
 # ===========================================
 # INSTALL MCS-API CRDs ON HUB CLUSTER
@@ -235,19 +266,49 @@ install_cilium kind-${SPOKE_CLUSTERS[1]} ${SPOKE_CLUSTERS[1]} ${SPOKE_CLUSTER_ID
 # ===========================================
 echo "[INFO] Installing MetalLB on all clusters..."
 
-# Hub
-"$SCRIPT_DIR/install_metallb.sh" "kind-$HUB_CLUSTER_NAME" "hub"
 
-#./scripts/install_metallb.sh 
+# Hub
+"$BASE_DIR/scripts/install_metallb.sh" "kind-$HUB_CLUSTER_NAME" "hub"
 
 # Spokes
 for i in "${!SPOKE_CONTEXTS[@]}"; do
     context="${SPOKE_CONTEXTS[$i]}"
     cluster="${SPOKE_CLUSTER_NAMES[$i]}"
-    $SCRIPT_DIR/install_metallb.sh "$context" "$cluster"
+    "$BASE_DIR/scripts/install_metallb.sh" "$context" "$cluster"
 done
 
+echo "[INFO] MetalLB installation completed for all clusters."
+
 echo "[INFO] Applying IPAddressPool to hub cluster..."
+
+
+
+
+# ===========================================
+# Install ingress-nginx in all clusters
+# ===========================================
+install_ingress_nginx() {
+    local context=$1
+    echo "[INFO] Installing ingress-nginx on cluster: $context"
+
+    # Check if ingress-nginx is already installed
+    if kubectl --context "$context" get ns ingress-nginx &>/dev/null; then
+        echo "[INFO] ingress-nginx already installed on $context. Skipping..."
+    else
+        echo "[INFO] Installing ingress-nginx Helm chart on $context..."
+        helm upgrade --install ingress-nginx $BASE_DIR/charts/nginx-ingress/ingress-nginx-4.13.2.tgz \
+            --kube-context "$context" \
+            --namespace ingress-nginx \
+            --create-namespace
+    fi
+}
+
+
+echo "[INFO] Installing ingress-nginx on all clusters..."
+for ctx in "${ALL_CONTEXTS[@]}"; do
+    install_ingress_nginx "$ctx"
+done
+
 
 # ===========================================
 # INSTALL ARGOCD ON HUB
@@ -346,18 +407,62 @@ enable_cilium_clustermesh
 # ===========================================
 # LABEL MANAGED CLUSTERS WITH CLUSTERSET
 # ===========================================
+# label_managed_clusters() {
+#     echo "[INFO] Labeling ManagedClusters with clusterset: location-es"
+
+#     for cluster in "${SPOKE_CLUSTER_NAMES[@]}"; do
+#         echo "[INFO] Adding label to ManagedCluster: $cluster"
+#         kubectl label managedcluster "$cluster" \
+#             cluster.open-cluster-management.io/clusterset=location-es --overwrite
+#     done
+
+#     echo "[INFO] Labels applied successfully. Verifying..."
+#     kubectl get managedclusters --show-labels
+# }
+
+
+
 label_managed_clusters() {
-    echo "[INFO] Labeling ManagedClusters with clusterset: location-es"
+    local hub_context="kind-$HUB_CLUSTER_NAME"
+    echo "[INFO] Labeling ManagedClusters in hub cluster ($hub_context) with clusterset: location-es"
 
     for cluster in "${SPOKE_CLUSTER_NAMES[@]}"; do
         echo "[INFO] Adding label to ManagedCluster: $cluster"
-        kubectl label managedcluster "$cluster" \
+        kubectl --context "$hub_context" label managedcluster "$cluster" \
             cluster.open-cluster-management.io/clusterset=location-es --overwrite
     done
 
     echo "[INFO] Labels applied successfully. Verifying..."
-    kubectl get managedclusters --show-labels
+    kubectl --context "$hub_context" get managedclusters --show-labels
 }
+
+label_managed_clusters
+
+echo "[INFO] Enabling ManifestWorkReplicaSet feature in ClusterManager..."
+
+# Patch the ClusterManager CR to add the feature gate under workConfiguration
+kubectl patch clustermanager cluster-manager --type='merge' -p '{
+  "spec": {
+    "workConfiguration": {
+      "featureGates": [
+        {
+          "feature": "ManifestWorkReplicaSet",
+          "mode": "Enable"
+        }
+      ]
+    }
+  }
+}'
+
+echo "[INFO] Patch applied. Verifying..."
+
+# Verify the feature gate is enabled
+kubectl get clustermanager cluster-manager -o yaml | grep -A3 "feature: ManifestWorkReplicaSet" || {
+  echo "[ERROR] Feature not found in ClusterManager spec!"
+  exit 1
+}
+
+echo "[INFO] ManifestWorkReplicaSet feature enabled successfully."
 
 
 # ===========================================
@@ -365,14 +470,16 @@ label_managed_clusters() {
 # ===========================================
 # ===========================================
 
-kubectl apply -f example/location-es/clusterclaim-east.yaml --context kind-$SPOKE_CLUSTERS[0]
-kubectl apply -f example/location-es/clusterclaim-west.yaml --context kind-$SPOKE_CLUSTERS[1]
+kubectl apply -f $BASE_DIR/examples/location-es/clusterclaim-east.yaml --context kind-east
+kubectl apply -f $BASE_DIR/examples/location-es/clusterclaim-west.yaml --context kind-west
 
-kubectl apply -f examples/location-es/managedclusterset.yaml --context kind-$HUB_CLUSTER_NAME
-kubectl apply -f examples/location-es/managedclustersetbinding.yaml --context kind-$HUB_CLUSTER_NAME
+kubectl apply -f $BASE_DIR/examples/location-es/managedclusterset.yaml --context kind-$HUB_CLUSTER_NAME
+kubectl apply -f $BASE_DIR/examples/location-es/managedclustersetbinding.yaml --context kind-$HUB_CLUSTER_NAME
 
-kubectl apply -f examples/location-es/placement.yaml --context kind-$HUB_CLUSTER_NAME
-kubectl apply -f examples/location-es/manifestworkreplicaset.yaml --context kind-$HUB_CLUSTER
+kubectl apply -f $BASE_DIR/examples/location-es/placement.yaml --context kind-$HUB_CLUSTER_NAME
+kubectl apply -f $BASE_DIR/examples/location-es/manifestworkreplicaset.yaml --context kind-$HUB_CLUSTER_NAME
 
-kubectl apply -f examples/location-es/argocd-applicationset.yaml --context kind-$HUB_CLUSTER_NAME
-kubectl apply -f examples/location-es/application.yaml --context kind-$HUB_CLUSTER_NAME
+kubectl apply -f $BASE_DIR/examples/location-es/applicationset.yaml --context kind-$HUB_CLUSTER_NAME
+kubectl apply -f $BASE_DIR/examples/location-es/application.yaml --context kind-$HUB_CLUSTER_NAME
+
+
