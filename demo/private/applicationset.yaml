@@ -1,19 +1,19 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: guestbook-app
+  name: private-guestbook-app
   namespace: argocd
 spec:
   generators:
     - clusterDecisionResource:
-        configMapRef: ocm-placement-generator-location-es
+        configMapRef: ocm-placement-generator-cluster1
         labelSelector:
           matchLabels:
-            cluster.open-cluster-management.io/placement: guestbook-app-placement
+            cluster.open-cluster-management.io/placement: guestbook-app-placement-cluster1
         requeueAfterSeconds: 30
   template:
     metadata:
-      name: '{{clusterName}}-guestbook-app'
+      name: '{{clusterName}}-guestbook-app-placement-east'
       labels:
         apps.open-cluster-management.io/pull-to-ocm-managed-cluster: 'true'
       annotations:
@@ -23,12 +23,12 @@ spec:
     spec:
       project: default
       source:
-        repoURL: 'https://github.com/argoproj/argocd-example-apps.git'
+        repoURL: 'https://github.com/RajivBB/argocd-example-apps-ocm.git'
         targetRevision: HEAD
-        path: guestbook
+        path: helm-dependency
       destination:
         name: '{{clusterName}}'
-        namespace: guestbook-test-2
+        namespace: private-ns
       syncPolicy:
         automated:
           prune: true

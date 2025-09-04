@@ -30,7 +30,7 @@ HELM_VERSION="v3.14.0"
 CILIUM_CLI_VERSION="" # Will be auto-detected
 
 # Progress tracking
-STEPS_TOTAL=20
+STEPS_TOTAL=12
 CURRENT_STEP=0
 
 # ===========================================
@@ -58,7 +58,7 @@ log_error() {
 
 cleanup_on_failure() {
     log_error "Setup failed. Cleaning up clusters..."
-    kind delete cluster --name hub 2>/dev/null || true
+    kind delete cluster --name $HUB_CLUSTER_NAME 2>/dev/null || true
     kind delete cluster --name east 2>/dev/null || true
     kind delete cluster --name west 2>/dev/null || true
     exit 1
@@ -67,275 +67,6 @@ cleanup_on_failure() {
 # Set up error handling
 trap cleanup_on_failure ERR
 
-# ===========================================
-# ARCHITECTURE AND OS DETECTION
-# ===========================================
-get_arch() {
-    case $(uname -m) in
-        x86_64) echo "amd64" ;;
-        aarch64|arm64) echo "arm64" ;;
-        *) 
-            log_error "Unsupported architecture: $(uname -m)"
-            exit 1 ;;
-    esac
-}
-
-get_os() {
-    case $(uname -s) in
-        Linux) echo "linux" ;;
-        Darwin) echo "darwin" ;;
-        *) 
-            log_error "Unsupported OS: $(uname -s)"
-            exit 1 ;;
-    esac
-}
-
-detect_distro() {
-    case "$OSTYPE" in
-        linux-gnu*) 
-            if [ -f /etc/arch-release ]; then echo "arch"
-            elif [ -f /etc/debian_version ]; then echo "debian"
-            elif [ -f /etc/redhat-release ]; then echo "rhel"
-            elif [ -f /etc/fedora-release ]; then echo "fedora"
-            else echo "linux" 
-            fi ;;
-        darwin*) echo "mac" ;;
-        *) echo "unknown" ;;
-    esac
-}
-
-ARCH=$(get_arch)
-OS_ARCH=$(get_os)
-DISTRO=$(detect_distro)
-
-log_info "Detected OS: $DISTRO, Architecture: $ARCH"
-
-# ===========================================
-# VALIDATION FUNCTIONS
-# ===========================================
-# validate_prerequisites() {
-#     log_info "Validating system prerequisites..."
-    
-#     # Check available memory (minimum 8GB recommended)
-#     local mem_gb
-#     if command -v free >/dev/null 2>&1; then
-#         mem_gb=$(free -g | awk '/^Mem:/{print $2}')
-#         if [ "$mem_gb" -lt 8 ]; then
-#             log_warn "Only ${mem_gb}GB RAM detected. 8GB+ recommended for stable operation."
-#         else
-#             log_info "Memory check passed: ${mem_gb}GB available"
-#         fi
-#     fi
-    
-#     # Check available disk space (minimum 10GB)
-#     local disk_gb
-#     disk_gb=$(df / | awk 'NR==2 {print int($4/1024/1024)}')
-#     if [ "$disk_gb" -lt 10 ]; then
-#         log_warn "Only ${disk_gb}GB disk space available. 10GB+ recommended."
-#     else
-#         log_info "Disk space check passed: ${disk_gb}GB available"
-#     fi
-    
-#     # Check if required ports are available
-#     check_port_availability $HUB_API_PORT "Hub cluster API"
-#     check_port_availability $EAST_API_PORT "East cluster API"
-#     check_port_availability $WEST_API_PORT "West cluster API"
-# }
-
-check_port_availability() {
-    local port=$1
-    local description=$2
-    
-    if command -v ss >/dev/null 2>&1; then
-        if ss -tuln | grep -q ":$port "; then
-            log_error "Port $port is already in use (needed for $description)"
-            exit 1
-        fi
-    elif command -v netstat >/dev/null 2>&1; then
-        if netstat -tuln | grep -q ":$port "; then
-            log_error "Port $port is already in use (needed for $description)"
-            exit 1
-        fi
-    else
-        log_warn "Cannot check port availability (ss/netstat not found)"
-    fi
-}
-
-check_docker_running() {
-    if $DOCKER_REQUIRED; then
-        if ! docker info >/dev/null 2>&1; then
-            log_error "Docker daemon is not running. Please start Docker first."
-            exit 1
-        fi
-        log_info "Docker daemon is running"
-    fi
-}
-
-# ===========================================
-# PACKAGE INSTALLATION HELPERS
-# ===========================================
-install_package() {
-    local pkg=$1
-    log_info "Installing package: $pkg"
-    case $DISTRO in
-        arch) sudo pacman -Sy --noconfirm $pkg ;;
-        debian) sudo apt-get update && sudo apt-get install -y $pkg ;;
-        rhel) sudo yum install -y $pkg ;;
-        fedora) sudo dnf install -y $pkg ;;
-        mac) brew install $pkg ;;
-        *) 
-            log_error "Unsupported OS for package: $pkg"
-            exit 1 ;;
-    esac
-}
-
-install_docker() {
-    if ! command -v docker >/dev/null 2>&1; then
-        log_info "Installing Docker..."
-        case $DISTRO in
-            arch|rhel|fedora) 
-                install_package docker
-                sudo systemctl enable --now docker ;;
-            debian)
-                install_package apt-transport-https
-                install_package ca-certificates
-                install_package curl
-                install_package software-properties-common
-                
-                # Add Docker's official GPG key and repository
-                curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-                sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-                sudo apt-get update && sudo apt-get install -y docker-ce
-                sudo systemctl enable --now docker ;;
-            mac) 
-                log_info "Installing Docker Desktop for Mac..."
-                brew install --cask docker ;;
-        esac
-        
-        # Add current user to docker group (Linux only)
-        if [ "$OS_ARCH" = "linux" ]; then
-            sudo usermod -aG docker "$USER"
-            log_warn "Added user to docker group. You may need to log out and back in."
-        fi
-    else
-        log_info "Docker already installed."
-    fi
-}
-
-install_binary() {
-    local name=$1
-    local url=$2
-    local version=$3
-    
-    if ! command -v "$name" >/dev/null 2>&1; then
-        log_info "Installing $name $version..."
-        local temp_file="/tmp/${name}-${version}"
-        
-        if curl -fsSL -o "$temp_file" "$url"; then
-            chmod +x "$temp_file"
-            sudo mv "$temp_file" "/usr/local/bin/$name"
-            log_info "$name installed successfully"
-        else
-            log_error "Failed to download $name from $url"
-            exit 1
-        fi
-    else
-        local installed_version
-        installed_version=$($name version 2>/dev/null || $name --version 2>/dev/null || echo "unknown")
-        log_info "$name already installed (version: $installed_version)"
-    fi
-}
-
-# ===========================================
-# SPECIALIZED INSTALLATION FUNCTIONS
-# ===========================================
-install_kind() {
-    local url="https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-${OS_ARCH}-${ARCH}"
-    install_binary "kind" "$url" "$KIND_VERSION"
-}
-
-install_kubectl() {
-    local stable_version
-    stable_version=$(curl -fsSL https://storage.googleapis.com/kubernetes-release/release/stable.txt)
-    local url="https://storage.googleapis.com/kubernetes-release/release/${stable_version}/bin/${OS_ARCH}/${ARCH}/kubectl"
-    install_binary "kubectl" "$url" "$stable_version"
-}
-
-install_clusteradm() {
-    local url="https://github.com/open-cluster-management-io/clusteradm/releases/latest/download/clusteradm_${OS_ARCH}_${ARCH}"
-    if [ "$OS_ARCH" = "darwin" ]; then
-        url="https://github.com/open-cluster-management-io/clusteradm/releases/latest/download/clusteradm_${OS_ARCH}_${ARCH}.tar.gz"
-    fi
-    install_binary "clusteradm" "$url" "latest"
-}
-
-install_helm() {
-    if ! command -v helm >/dev/null 2>&1; then
-        log_info "Installing Helm ${HELM_VERSION}..."
-        local temp_dir="/tmp/helm-${HELM_VERSION}"
-        local archive_name="helm-${HELM_VERSION}-${OS_ARCH}-${ARCH}.tar.gz"
-        local url="https://get.helm.sh/${archive_name}"
-        
-        mkdir -p "$temp_dir"
-        if curl -fsSL -o "${temp_dir}/${archive_name}" "$url"; then
-            tar -zxf "${temp_dir}/${archive_name}" -C "$temp_dir"
-            sudo mv "${temp_dir}/${OS_ARCH}-${ARCH}/helm" /usr/local/bin/
-            rm -rf "$temp_dir"
-            log_info "Helm installed successfully"
-        else
-            log_error "Failed to download Helm"
-            exit 1
-        fi
-    else
-        local helm_version
-        helm_version=$(helm version --short 2>/dev/null || echo "unknown")
-        log_info "Helm already installed ($helm_version)"
-    fi
-}
-
-install_cilium_cli() {
-    if command -v cilium >/dev/null 2>&1; then
-        local cilium_version
-        cilium_version=$(cilium version --client 2>/dev/null | grep "cilium-cli" | awk '{print $2}' || echo "unknown")
-        log_info "Cilium CLI already installed ($cilium_version)"
-        return
-    fi
-
-    log_info "Installing Cilium CLI..."
-    
-    local version
-    if [ -n "$CILIUM_CLI_VERSION" ]; then
-        version="$CILIUM_CLI_VERSION"
-    else
-        version=$(curl -fsSL https://raw.githubusercontent.com/cilium/cilium-cli/main/stable.txt)
-    fi
-    
-    log_info "Installing Cilium CLI version: $version"
-    
-    local temp_dir="/tmp/cilium-${version}"
-    local archive_name="cilium-${OS_ARCH}-${ARCH}.tar.gz"
-    local url="https://github.com/cilium/cilium-cli/releases/download/${version}/${archive_name}"
-    
-    mkdir -p "$temp_dir"
-    cd "$temp_dir"
-    
-    if curl -fsSL -O "${url}" && curl -fsSL -O "${url}.sha256sum"; then
-        # Verify checksum
-        if [ "$OS_ARCH" = "darwin" ]; then
-            shasum -a 256 -c "${archive_name}.sha256sum"
-        else
-            sha256sum --check "${archive_name}.sha256sum"
-        fi
-        
-        sudo tar xzf "$archive_name" -C /usr/local/bin
-        cd - >/dev/null
-        rm -rf "$temp_dir"
-        log_info "Cilium CLI installed successfully"
-    else
-        log_error "Failed to download or verify Cilium CLI"
-        exit 1
-    fi
-}
 
 # ===========================================
 # NETWORK UTILITIES
@@ -412,17 +143,7 @@ wait_for_namespace() {
 # ===========================================
 # MAIN INSTALLATION WORKFLOW
 # ===========================================
-#progress "Validating prerequisites"
-#validate_prerequisites
-check_docker_running
 
-progress "Installing prerequisites"
-$DOCKER_REQUIRED && install_docker
-install_kind
-install_kubectl
-install_clusteradm
-install_helm
-install_cilium_cli
 
 # Get host IP for cluster API servers
 HOST_IP=$(get_ip_address)
@@ -462,7 +183,6 @@ nodes:
       certSANs:
       - "$api_addr"
       - "127.0.0.1"
-- role: worker
 EOF
 
     # Wait for nodes to be ready
@@ -746,10 +466,6 @@ verify_managed_clusters
 
 
 
-
-
-
-
 # ===========================================
 # LABEL MANAGED CLUSTERS WITH CLUSTERSET
 # ===========================================
@@ -824,7 +540,7 @@ enable_cilium_clustermesh() {
     # Enable clustermesh on all clusters
     for ctx in "${ALL_CONTEXTS[@]}"; do
         log_info "Enabling clustermesh on $ctx..."
-        cilium clustermesh enable --context "$ctx" --service-type=NodePort --wait
+        cilium clustermesh enable --context "$ctx" --service-type=NodePort
     done
 
     # Wait for clustermesh to be ready on all clusters
@@ -843,23 +559,42 @@ enable_cilium_clustermesh() {
        done
     done
 }
+
+enable_cilium_clustermesh
 # ===========================================
 # Example Manifest
 # ===========================================
 # ===========================================
 
-kubectl apply -f $BASE_DIR/examples/location-es/clusterclaim-east.yaml --context kind-east
-kubectl apply -f $BASE_DIR/examples/location-es/clusterclaim-west.yaml --context kind-west
+## This file defines a ClusterClaim for a managed cluster in the "east" and "west" location.
 
-kubectl apply -f $BASE_DIR/examples/location-es/managedclusterset.yaml --context kind-$HUB_CLUSTER_NAME
-kubectl apply -f $BASE_DIR/examples/location-es/managedclustersetbinding.yaml --context kind-$HUB_CLUSTER_NAME
-kubectl apply -f $BASE_DIR/examples/location-es/placement.yaml --context kind-$HUB_CLUSTER_NAME
-kubectl apply -f $BASE_DIR/examples/location-es/manifestworkreplicaset.yaml --context kind-$HUB_CLUSTER_NAME
+ kubectl apply -f $BASE_DIR/examples/location-es/clusterclaims/clusterclaim-east.yaml --context kind-east
+ kubectl apply -f $BASE_DIR/examples/location-es/clusterclaims/clusterclaim-west.yaml --context kind-west
+
+## The following resources set up a ManagedClusterSet named "location-es", bind the "east" and "west" clusters to it,
+## define a Placement policy to select these clusters, and create a ManifestWorkReplicaSet to deploy resources to them.
+## The resources are applied to the hub cluster context. 
+
+ kubectl apply -f $BASE_DIR/examples/location-es/manageclusters/managedclusterset.yaml --context kind-$HUB_CLUSTER_NAME
+ kubectl apply -f $BASE_DIR/examples/location-es/manageclusters/managedclustersetbinding.yaml --context kind-$HUB_CLUSTER_NAME
+ 
+ kubectl apply -f $BASE_DIR/examples/location-es/content-placement/placement.yaml --context kind-$HUB_CLUSTER_NAME
+ kubectl apply -f $BASE_DIR/examples/location-es/workloads/manifestworkreplicaset.yaml --context kind-$HUB_CLUSTER_NAME
+## The following resource sets up an ArgoCD Application using ManifestWorkReplicaSet to deploy applications to the clusters in the "location-es" ManagedClusterSet.
+ kubectl apply -f $BASE_DIR/examples/location-es/workloads/application.yaml --context kind-$HUB_CLUSTER_NAME
 
 
-kubectl apply -f $BASE_DIR/examples/argocd/rbac-appset.yaml --context kind-$HUB_CLUSTER_NAME
-kubectl apply -f $BASE_DIR/examples/argocd/configmap.yaml --context kind-$HUB_CLUSTER_NAME
-kubectl apply -f $BASE_DIR/examples/argocd/placement.yaml --context kind-$HUB_CLUSTER_NAME
-kubectl apply -f $BASE_DIR/examples/argocd/applicationset.yaml --context kind-$HUB_CLUSTER_NAME
-kubectl apply -f $BASE_DIR/examples/argocd/application.yaml --context kind-$HUB_CLUSTER_NAME
+## The following resources set up ArgoCD ApplicationSet to manage applications across the clusters in the "location-es" ManagedClusterSet.
 
+ kubectl apply -f $BASE_DIR/examples/argocd/configmap.yaml --context kind-$HUB_CLUSTER_NAME
+ kubectl apply -f $BASE_DIR/examples/argocd/placement.yaml --context kind-$HUB_CLUSTER_NAME
+ kubectl apply -f $BASE_DIR/examples/argocd/applicationset.yaml --context kind-$HUB_CLUSTER_NAME
+
+
+
+# ===========================================
+# SETUP COMPLETE
+# ===========================================
+progress "Setup Complete!"
+log_info "OCM ArgoCD setup completed successfully!"
+echo "=================================================="

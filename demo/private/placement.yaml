@@ -1,0 +1,15 @@
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Placement
+metadata:
+  name: guestbook-app-placement-cluster1
+  namespace: argocd
+spec:
+  predicates:
+    - requiredClusterSelector:
+        claimSelector:
+          matchExpressions:
+            - key: id.k8s.io
+              operator: In
+              values:
+                - dev-kind-east
+  numberOfClusters: 1

@@ -1,0 +1,15 @@
+## This is an example ConfigMap for a placement decision generator.
+## You can create multiple ConfigMaps with different names and use them in different ApplicationSets.
+## Just make sure to update the configMapRef in the ApplicationSet accordingly.
+
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ocm-placement-generator-cluster1
+  namespace: argocd
+data:
+  apiVersion: cluster.open-cluster-management.io/v1beta1
+  kind: placementdecisions
+  statusListKey: decisions
+  matchKey: clusterName
