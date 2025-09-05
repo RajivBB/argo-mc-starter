@@ -4,6 +4,10 @@
 ### 📄 `docs/EXAMPLES.md`
 Deep dive into the examples you bundled (`examples/` + `demo/`).
 
+
+![Workflow](./assets/gitops-workflow.png)
+
+
 ```markdown
 # Example Scenarios
 
