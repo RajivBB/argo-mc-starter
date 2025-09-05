@@ -13,7 +13,10 @@ A comprehensive demonstration of multi-cluster Kubernetes management using **Ope
 - **Resource Distribution**: ManifestWorkReplicaSet for scalable deployments
 - **Cluster Labeling**: Location-based cluster selection and placement
 
-## Quick Start
+## Architecture Diagram
+
+![Architecture](./docs/assets/architecture.png)
+
 
 ### Prerequisites
 
@@ -161,62 +164,7 @@ Each cluster uses isolated network ranges to prevent conflicts:
 - **East Cluster**: Pods `10.16.0.0/16`, Services `10.17.0.0/16`
 - **West Cluster**: Pods `10.18.0.0/16`, Services `10.19.0.0/16`
 
-## Project Structure
 
-```
-├── charts
-│   ├── argocd
-│   │   └── install.yaml
-│   ├── cert-manager
-│   │   ├── cert-manager.crds.yaml
-│   │   └── cert-manager-v1.18.2.tgz
-│   ├── cilium
-│   │   ├── cilium-1.18.1.tgz
-│   │   └── cilium-values.yaml
-│   ├── fleetconfig-controller
-│   │   └── fleetconfig-controller-0.0.12.tgz
-│   └── nginx-ingress
-│       └── ingress-nginx-4.13.2.tgz
-├── cluster-config
-│   ├── hub.config
-│   └── spoke.config
-├── demo
-│   ├── private
-│   │   ├── applicationset.yaml
-│   │   ├── basic-auth-secret.yaml
-│   │   ├── configmap.yaml
-│   │   ├── placement.yaml
-│   │   └── ssh-secret.yaml
-│   └── public
-│       ├── applicationset.yaml
-│       ├── configmap.yaml
-│       └── placement.yaml
-├── docs
-│   └── assets
-├── examples
-│   ├── argocd
-│   │   ├── applicationset.yaml
-│   │   ├── configmap.yaml
-│   │   └── placement.yaml
-│   └── location-es
-│       ├── clusterclaims
-│       │   ├── clusterclaim-east.yaml
-│       │   └── clusterclaim-west.yaml
-│       ├── content-placement
-│       │   └── placement.yaml
-│       ├── manageclusters
-│       │   ├── managedclustersetbinding.yaml
-│       │   └── managedclusterset.yaml
-│       └── workloads
-│           ├── application.yaml
-│           └── manifestworkreplicaset.yaml
-├── output
-│   └── script-output.yaml
-├── README.md
-└── scripts
-    ├── install_metallb.sh
-    └── ocm-argo-setup.sh
-```
 
 ## Testing
 
@@ -285,48 +233,10 @@ kind delete cluster --name west
 sudo rm -f /usr/local/bin/{kind,kubectl,clusteradm,cilium}
 ```
 
-## Contributing
+## CONTRIBUTING GUIDELINES
 
-We welcome contributions from the community! Here's how you can help:
+[CONTRIBUTING.md](./docs/CONTRIBUTING.md)
 
-### Getting Started
-
-1. **Fork the repository**
-2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
-3. **Make your changes**
-4. **Test thoroughly** using the provided examples
-5. **Commit your changes**: `git commit -m 'Add amazing feature'`
-6. **Push to the branch**: `git push origin feature/amazing-feature`
-7. **Open a Pull Request**
-
-### Contribution Areas
-
-- **Documentation**: Improve setup guides, add tutorials
-- **Scripts**: Enhance automation, add error handling
-- **Examples**: Create new deployment scenarios
-- **Bug Fixes**: Report and fix issues
-- **Features**: Add new multi-cluster capabilities
-
-
-### Contributing
-We welcome contributions from the community! Here's how you can help:
-
-- Getting Started
-- Fork the repository
-- Create a feature branch: git checkout -b feature/amazing-feature
-- Make your changes
-- Test thoroughly using the provided examples
-- Commit your changes: git commit -m 'Add amazing feature'
-- Push to the branch: git push origin feature/amazing-feature
-- Open a Pull Request
-
-#### Contribution Areas
-
-Documentation: Improve setup guides, add tutorials
-Scripts: Enhance automation, add error handling
-Examples: Create new deployment scenarios
-Bug Fixes: Report and fix issues
-Features: Add new multi-cluster capabilities
 
 ### Development Setup
 
