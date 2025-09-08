@@ -297,6 +297,29 @@ install_cilium "kind-${SPOKE_CLUSTERS[0]}" "${SPOKE_CLUSTERS[0]}" "${SPOKE_CLUST
 install_cilium "kind-${SPOKE_CLUSTERS[1]}" "${SPOKE_CLUSTERS[1]}" "${SPOKE_CLUSTER_IDS[1]}"
 
 # ===========================================
+# CERT MANAGER INSTALLATION
+# ===========================================
+install_cert_manager_spokes() {
+    progress "Installing cert-manager in spoke clusters"
+    
+    for ctx in "${SPOKE_CONTEXTS[@]}"; do
+        log_info "Installing cert-manager in $ctx"
+        
+        # Apply CRDs first
+        kubectl --context "$ctx" apply -f "$BASE_DIR/charts/cert-manager/cert-manager.crds.yaml"
+        
+        # Install chart
+        helm upgrade --install cert-manager \
+            "$BASE_DIR/charts/cert-manager/cert-manager-v1.18.2.tgz" \
+            --kube-context "$ctx" \
+            --namespace cert-manager \
+            --create-namespace \
+            --set installCRDs=false
+    done
+}
+
+
+# ===========================================
 # METALLB INSTALLATION
 # ===========================================
 progress "Installing MetalLB"
@@ -561,9 +584,9 @@ enable_cilium_clustermesh() {
 }
 
 enable_cilium_clustermesh
+
 # ===========================================
 # Example Manifest
-# ===========================================
 # ===========================================
 
 ## This file defines a ClusterClaim for a managed cluster in the "east" and "west" location.
