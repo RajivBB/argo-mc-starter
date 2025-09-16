@@ -6,7 +6,7 @@ metadata:
 spec:
   generators:
     - clusterDecisionResource:
-        configMapRef: ocm-placement-generator-location-es
+        configMapRef: ocm-placement-generator
         labelSelector:
           matchLabels:
             cluster.open-cluster-management.io/placement: guestbook-app-placement
@@ -25,10 +25,10 @@ spec:
       source:
         repoURL: 'https://github.com/argoproj/argocd-example-apps.git'
         targetRevision: HEAD
-        path: guestbook
+        path: helm-guestbook
       destination:
         name: '{{clusterName}}'
-        namespace: guestbook-test-2
+        namespace: helm-guestbook
       syncPolicy:
         automated:
           prune: true

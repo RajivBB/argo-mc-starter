@@ -1,35 +1,35 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: guestbook-ui-ingress
-  namespace: guestbook
+  name: nginx
+  namespace: kube-system
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/service-upstream: "true"
 spec:
   ingressClassName: nginx
   rules:
-  - host: guestbook-ui.staging.01cloud.dev  # Replace with your domain or external IP
+  - host: nginx.staging.01cloud.dev  # Replace with your domain or external IP
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: derived-3hmaqibbgf
+            name: derived-j1728njoq1
             port:
               number: 80
 ---
-apiVersion: networking.karmada.io/v1alpha1
-kind: MultiClusterIngress
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
-  name: wordpress-ingress-1
-  namespace: guestbook
+  name: wordpress
+  namespace: wordpress
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/service-upstream: "true"
 spec:
   ingressClassName: nginx
   rules:
-  - host: wp.staging.01cloud.dev  # Replace with your domain or external IP
+  - host: wordpress.staging.01cloud.dev  # Replace with your domain or external IP
     http:
       paths:
       - path: /

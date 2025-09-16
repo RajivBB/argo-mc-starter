@@ -1,23 +1,22 @@
 # Multi-Cluster Management with OCM and ArgoCD
 
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-1.25+-blue.svg)](https://kubernetes.io/)
-[![OCM](https://img.shields.io/badge/OCM-Latest-green.svg)](https://open-cluster-management.io/)
-[![ArgoCD](https://img.shields.io/badge/ArgoCD-Latest-orange.svg)](https://argoproj.github.io/argo-cd/)
-
 A comprehensive demonstration of multi-cluster Kubernetes management using **Open Cluster Management (OCM)** and **ArgoCD**, featuring automated cluster provisioning, service mesh connectivity with Cilium, and GitOps-based application deployment across multiple clusters.
 
 
 ### Key Features
 
-- **🎯 Multi-Cluster Management**: Complete OCM setup with hub-spoke topology
-- **🚀 GitOps Deployment**: ArgoCD for automated application deployment
-- **🌐 Service Mesh**: Cilium cluster mesh for cross-cluster connectivity
-- **⚖️ Load Balancing**: MetalLB for LoadBalancer services
-- **🔀 Ingress Management**: nginx-ingress controllers on all clusters
-- **📋 Resource Distribution**: ManifestWorkReplicaSet for scalable deployments
-- **🏷️ Cluster Labeling**: Location-based cluster selection and placement
+- **Multi-Cluster Management**: Complete OCM setup with hub-spoke topology
+- **GitOps Deployment**: ArgoCD for automated application deployment
+- **Service Mesh**: Cilium cluster mesh for cross-cluster connectivity
+- **Load Balancing**: MetalLB for LoadBalancer services
+- **Ingress Management**: nginx-ingress controllers on all clusters
+- **Resource Distribution**: ManifestWorkReplicaSet for scalable deployments
+- **Cluster Labeling**: Location-based cluster selection and placement
 
-## 🚀 Quick Start
+## Architecture Diagram
+
+![Architecture](./docs/assets/architecture.png)
+
 
 ### Prerequisites
 
@@ -30,7 +29,16 @@ Before running the setup script, ensure you have the following available on your
 - **Network**: Internet connectivity for downloading container images
 - **Permissions**: sudo access for package installation
 
-### Automatic Installation
+### Required Tools
+
+ - **kind**        : https://kind.sigs.k8s.io/docs/user/quick-start/#installation 
+ - **kubectl** : https://kubernetes.io/docs/tasks/tools/
+ - **helm** : https://helm.sh/docs/intro/install/
+ - **cilium**: https://docs.cilium.io/en/stable/gettingstarted/k8s-install-default/
+ - **clusteradm**: https://open-cluster-management.io/docs/getting-started/quick-start/
+ - **docker**: https://docs.docker.com/engine/install/
+
+### Quick Start
 
 The project includes an automated setup script that handles all prerequisites and cluster configuration:
 
@@ -50,33 +58,33 @@ chmod +x scripts/ocm-argo-setup.sh
 
 The automated setup performs the following operations:
 
-1. **📦 Prerequisites Installation**
+1. **Prerequisites Installation**
    - Detects your operating system
    - Installs Docker, Kind, kubectl, clusteradm, and Cilium CLI
    - Sets up Helm repository for Cilium
 
-2. **🏗️ Cluster Creation**
+2. **Cluster Creation**
    - Creates 3 KinD clusters (hub, east, west)
    - Configures unique pod/service subnets for each cluster
    - Sets up proper API server endpoints for cross-cluster communication
 
-3. **🔗 Network Setup**
+3. **Network Setup**
    - Installs Cilium CNI with cluster mesh capabilities
    - Configures MetalLB for LoadBalancer services
    - Deploys ingress-nginx controllers
 
-4. **🎯 OCM Configuration**
+4. **OCM Configuration**
    - Initializes OCM hub on the hub cluster
    - Joins spoke clusters to the hub
    - Accepts and configures managed clusters
    - Enables ArgoCD addon for all clusters
 
-5. **📋 Resource Management**
+5. **Resource Management**
    - Creates ManagedClusterSets for logical cluster grouping
    - Configures Placement policies for workload distribution
    - Sets up ManifestWorkReplicaSet for scaled deployments
 
-## 📚 Usage Examples
+## Usage Examples
 
 ### Verify Cluster Status
 
@@ -133,7 +141,7 @@ cilium clustermesh status --context kind-west
 kubectl apply -f examples/location-es/serviceexport.yaml --context kind-east
 ```
 
-## 🛠️ Configuration
+## Configuration
 
 ### Cluster Customization
 
@@ -156,31 +164,9 @@ Each cluster uses isolated network ranges to prevent conflicts:
 - **East Cluster**: Pods `10.16.0.0/16`, Services `10.17.0.0/16`
 - **West Cluster**: Pods `10.18.0.0/16`, Services `10.19.0.0/16`
 
-## 📂 Project Structure
 
-```
-├── scripts/
-│   ├── ocm-argo.sh              # Main setup script
-│   └── install_metallb.sh       # MetalLB installation script
-├── examples/
-│   ├── location-es/             # Location-based examples
-│   │   ├── clusterclaim-east.yaml
-│   │   ├── clusterclaim-west.yaml
-│   │   ├── managedclusterset.yaml
-│   │   ├── managedclustersetbinding.yaml
-│   │   ├── placement.yaml
-│   │   └── manifestworkreplicaset.yaml
-│   └── argocd/                  # ArgoCD configuration examples
-│       ├── rbac-appset.yaml
-│       ├── configmap.yaml
-│       ├── placement.yaml
-│       ├── applicationset.yaml
-│       └── application.yaml
-└── charts/                      # Helm charts
-    └── nginx-ingress/
-```
 
-## 🧪 Testing
+## Testing
 
 ### Validate OCM Setup
 
@@ -214,7 +200,7 @@ cilium connectivity test --context kind-hub --multi-cluster kind-east
 cilium connectivity test --context kind-hub --multi-cluster kind-west
 ```
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -247,27 +233,10 @@ kind delete cluster --name west
 sudo rm -f /usr/local/bin/{kind,kubectl,clusteradm,cilium}
 ```
 
-## 🤝 Contributing
+## CONTRIBUTING GUIDELINES
 
-We welcome contributions from the community! Here's how you can help:
+[CONTRIBUTING.md](./docs/CONTRIBUTING.md)
 
-### Getting Started
-
-1. **Fork the repository**
-2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
-3. **Make your changes**
-4. **Test thoroughly** using the provided examples
-5. **Commit your changes**: `git commit -m 'Add amazing feature'`
-6. **Push to the branch**: `git push origin feature/amazing-feature`
-7. **Open a Pull Request**
-
-### Contribution Areas
-
-- **📚 Documentation**: Improve setup guides, add tutorials
-- **🔧 Scripts**: Enhance automation, add error handling
-- **💡 Examples**: Create new deployment scenarios
-- **🐛 Bug Fixes**: Report and fix issues
-- **✨ Features**: Add new multi-cluster capabilities
 
 ### Development Setup
 
@@ -286,21 +255,16 @@ kubectl apply -f examples/location-es/ --context kind-hub
 ```
 
 
-## 📖 Documentation
+## Documentation
 
 - [Open Cluster Management Documentation](https://open-cluster-management.io/docs/)
 - [ArgoCD Documentation](https://argo-cd.readthedocs.io/)
 - [Cilium Cluster Mesh Guide](https://docs.cilium.io/en/stable/gettingstarted/clustermesh/)
 - [KinD Documentation](https://kind.sigs.k8s.io/)
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - [Open Cluster Management Community](https://github.com/open-cluster-management-io)
 - [ArgoCD Project](https://github.com/argoproj/argo-cd)
 - [Cilium Project](https://github.com/cilium/cilium)
 - [Kubernetes SIGs](https://github.com/kubernetes-sigs)
-
-
----
-
-⭐ **Star this repository** if you find it helpful! Your support helps us continue improving this project.
