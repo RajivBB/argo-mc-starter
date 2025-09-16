@@ -2,6 +2,17 @@
 
 A comprehensive demonstration of multi-cluster Kubernetes management using **Open Cluster Management (OCM)** and **ArgoCD**, featuring automated cluster provisioning, service mesh connectivity with Cilium, and GitOps-based application deployment across multiple clusters.
 
+
+### Key Features
+
+- **Multi-Cluster Management**: Complete OCM setup with hub-spoke topology
+- **GitOps Deployment**: ArgoCD for automated application deployment
+- **Service Mesh**: Cilium cluster mesh for cross-cluster connectivity
+- **Load Balancing**: MetalLB for LoadBalancer services
+- **Ingress Management**: nginx-ingress controllers on all clusters
+- **Resource Distribution**: ManifestWorkReplicaSet for scalable deployments
+- **Cluster Labeling**: Location-based cluster selection and placement
+
 ### Prerequisites
 
 Before running the setup script, ensure you have the following available on your system:
@@ -21,16 +32,6 @@ Before running the setup script, ensure you have the following available on your
  - **cilium**: https://docs.cilium.io/en/stable/gettingstarted/k8s-install-default/
  - **clusteradm**: https://open-cluster-management.io/docs/getting-started/quick-start/
  - **docker**: https://docs.docker.com/engine/install/
-
-### Key Features
-
-- **Multi-Cluster Management**: Complete OCM setup with hub-spoke topology
-- **GitOps Deployment**: ArgoCD for automated application deployment
-- **Service Mesh**: Cilium cluster mesh for cross-cluster connectivity
-- **Load Balancing**: MetalLB for LoadBalancer services
-- **Ingress Management**: nginx-ingress controllers on all clusters
-- **Resource Distribution**: ManifestWorkReplicaSet for scalable deployments
-- **Cluster Labeling**: Location-based cluster selection and placement
 
 ## Architecture Diagram
 
