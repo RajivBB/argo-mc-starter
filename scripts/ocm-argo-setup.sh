@@ -589,29 +589,29 @@ enable_cilium_clustermesh
 # Example Manifest
 # ===========================================
 
-## This file defines a ClusterClaim for a managed cluster in the "east" and "west" location.
+# ## This file defines a ClusterClaim for a managed cluster in the "east" and "west" location.
 
- kubectl apply -f $BASE_DIR/examples/location-es/clusterclaims/clusterclaim-east.yaml --context kind-east
- kubectl apply -f $BASE_DIR/examples/location-es/clusterclaims/clusterclaim-west.yaml --context kind-west
+#  kubectl apply -f $BASE_DIR/examples/location-es/clusterclaims/clusterclaim-east.yaml --context kind-east
+#  kubectl apply -f $BASE_DIR/examples/location-es/clusterclaims/clusterclaim-west.yaml --context kind-west
 
-## The following resources set up a ManagedClusterSet named "location-es", bind the "east" and "west" clusters to it,
-## define a Placement policy to select these clusters, and create a ManifestWorkReplicaSet to deploy resources to them.
-## The resources are applied to the hub cluster context. 
+# # ## The following resources set up a ManagedClusterSet named "location-es", bind the "east" and "west" clusters to it,
+# # ## define a Placement policy to select these clusters, and create a ManifestWorkReplicaSet to deploy resources to them.
+# # ## The resources are applied to the hub cluster context. 
 
- kubectl apply -f $BASE_DIR/examples/location-es/manageclusters/managedclusterset.yaml --context kind-$HUB_CLUSTER_NAME
- kubectl apply -f $BASE_DIR/examples/location-es/manageclusters/managedclustersetbinding.yaml --context kind-$HUB_CLUSTER_NAME
+#  kubectl apply -f $BASE_DIR/examples/location-es/manageclusters/managedclusterset.yaml --context kind-$HUB_CLUSTER_NAME
+#  kubectl apply -f $BASE_DIR/examples/location-es/manageclusters/managedclustersetbinding.yaml --context kind-$HUB_CLUSTER_NAME
  
- kubectl apply -f $BASE_DIR/examples/location-es/content-placement/placement.yaml --context kind-$HUB_CLUSTER_NAME
- kubectl apply -f $BASE_DIR/examples/location-es/workloads/manifestworkreplicaset.yaml --context kind-$HUB_CLUSTER_NAME
-## The following resource sets up an ArgoCD Application using ManifestWorkReplicaSet to deploy applications to the clusters in the "location-es" ManagedClusterSet.
- kubectl apply -f $BASE_DIR/examples/location-es/workloads/application.yaml --context kind-$HUB_CLUSTER_NAME
+#  kubectl apply -f $BASE_DIR/examples/location-es/content-placement/placement.yaml --context kind-$HUB_CLUSTER_NAME
+#  kubectl apply -f $BASE_DIR/examples/location-es/workloads/manifestworkreplicaset.yaml --context kind-$HUB_CLUSTER_NAME
+# # ## The following resource sets up an ArgoCD Application using ManifestWorkReplicaSet to deploy applications to the clusters in the "location-es" ManagedClusterSet.
+#  kubectl apply -f $BASE_DIR/examples/location-es/workloads/application.yaml --context kind-$HUB_CLUSTER_NAME
 
 
-## The following resources set up ArgoCD ApplicationSet to manage applications across the clusters in the "location-es" ManagedClusterSet.
+# # ## The following resources set up ArgoCD ApplicationSet to manage applications across the clusters in the "location-es" ManagedClusterSet.
 
- kubectl apply -f $BASE_DIR/examples/argocd/configmap.yaml --context kind-$HUB_CLUSTER_NAME
- kubectl apply -f $BASE_DIR/examples/argocd/placement.yaml --context kind-$HUB_CLUSTER_NAME
- kubectl apply -f $BASE_DIR/examples/argocd/applicationset.yaml --context kind-$HUB_CLUSTER_NAME
+#  kubectl apply -f $BASE_DIR/examples/argocd/configmap.yaml --context kind-$HUB_CLUSTER_NAME
+#  kubectl apply -f $BASE_DIR/examples/argocd/placement.yaml --context kind-$HUB_CLUSTER_NAME
+#  kubectl apply -f $BASE_DIR/examples/argocd/applicationset.yaml --context kind-$HUB_CLUSTER_NAME
 
 
 

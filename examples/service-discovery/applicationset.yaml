@@ -1,0 +1,43 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: wordpress-app
+  namespace: argocd
+spec:
+  generators:
+    - clusterDecisionResource:
+        configMapRef: ocm-placement-generator-cluster1
+        labelSelector:
+          matchLabels:
+            cluster.open-cluster-management.io/placement: guestbook-app-placement-cluster1
+        requeueAfterSeconds: 30
+  template:
+    metadata:
+      name: '{{clusterName}}-wordpress'
+      labels:
+        apps.open-cluster-management.io/pull-to-ocm-managed-cluster: 'true'
+      annotations:
+        argocd.argoproj.io/skip-reconcile: 'true'
+        apps.open-cluster-management.io/ocm-managed-cluster: '{{name}}'
+        apps.open-cluster-management.io/ocm-managed-cluster-app-namespace: argocd
+    spec:
+      project: default
+      source:
+        repoURL: https://charts.bitnami.com/bitnami
+        chart: wordpress
+        targetRevision: 18.1.16  
+        helm:
+          valueFiles:
+            - values.yaml
+          parameters:
+            - name: wordpressBlogName
+              value: "OCM GitOps WordPress"
+      destination:
+        name: '{{clusterName}}'
+        namespace: wordpress
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

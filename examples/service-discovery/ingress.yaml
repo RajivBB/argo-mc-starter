@@ -36,6 +36,6 @@ spec:
         pathType: Prefix
         backend:
           service:
-            name: derived-0j40b9n90r
+            name: derived-bo2bp9c7ce
             port:
               number: 80

@@ -243,15 +243,13 @@ sudo rm -f /usr/local/bin/{kind,kubectl,clusteradm,cilium}
 ```bash
 # Clone your fork
 git clone https://github.com/RajivBB/argo-mc-starter.git
-cd argo-mc-starter
+cd argo-mc-starter/scripts
 
 # Make the script executable
-chmod +x scripts/ocm-argo-setup.sh
+chmod +x ocm-argo-setup.sh
 
 # Run the complete setup
 ./scripts/ocm-argo-setup.sh
-# Run examples
-kubectl apply -f examples/location-es/ --context kind-hub
 ```
 
 
