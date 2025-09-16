@@ -13,11 +13,6 @@ A comprehensive demonstration of multi-cluster Kubernetes management using **Ope
 - **Resource Distribution**: ManifestWorkReplicaSet for scalable deployments
 - **Cluster Labeling**: Location-based cluster selection and placement
 
-## Architecture Diagram
-
-![Architecture](./docs/assets/architecture.png)
-
-
 ### Prerequisites
 
 Before running the setup script, ensure you have the following available on your system:
@@ -37,6 +32,11 @@ Before running the setup script, ensure you have the following available on your
  - **cilium**: https://docs.cilium.io/en/stable/gettingstarted/k8s-install-default/
  - **clusteradm**: https://open-cluster-management.io/docs/getting-started/quick-start/
  - **docker**: https://docs.docker.com/engine/install/
+
+## Architecture Diagram
+
+![Architecture](./docs/assets/architecture.png)
+
 
 ### Quick Start
 
